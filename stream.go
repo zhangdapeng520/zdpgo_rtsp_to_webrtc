@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -32,13 +33,17 @@ func RTSPWorkerLoop(name, url string, OnDemand, DisableAudio, Debug bool) {
 	// 延迟解锁
 	defer Config.RunUnlock(name)
 	for {
-		log.Println("尝试建立连接：", name)
-
-		// 开始工作
+		// TODO：开始工作
+		// 这个方法里面有一个死循环，只要不报错，就会一直留在这个循环中
 		err := RTSPWorker(name, url, OnDemand, DisableAudio, Debug)
 		if err != nil {
-			log.Println(err)
+			log.Println("执行RTSPWorker错误：", err)
 			Config.LastError = err
+		}
+		// 监听浏览器的退出信号
+		tmp, ok := Config.Streams[name]
+		if ok {
+			fmt.Println("当前视频流的客户端连接数：", len(tmp.Cl), tmp.Cl)
 		}
 		if OnDemand && !Config.HasViewer(name) {
 			log.Println(ErrorStreamExitNoViewer)
@@ -76,6 +81,8 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 	// 监听不同的goroutine数据
 	for {
 		select {
+
+		// 测试客户端
 		case <-clientTest.C:
 			if OnDemand {
 				if !Config.HasViewer(name) {
@@ -84,8 +91,11 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 					clientTest.Reset(20 * time.Second)
 				}
 			}
+
+		// 测试按键
 		case <-keyTest.C:
 			return ErrorStreamExitNoVideoOnStream
+		// 信号
 		case signals := <-RTSPClient.Signals:
 			switch signals {
 			case rtspv2.SignalCodecUpdate:
@@ -93,6 +103,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 			case rtspv2.SignalStreamRTPStop:
 				return ErrorStreamExitRtspDisconnect
 			}
+		// 打包
 		case packetAV := <-RTSPClient.OutgoingPacketQueue:
 			if AudioOnly || packetAV.IsKeyFrame {
 				keyTest.Reset(20 * time.Second)
