@@ -12,6 +12,11 @@ import (
 	"github.com/deepch/vdk/av"
 	webrtc "github.com/deepch/vdk/format/webrtcv3"
 	"github.com/gin-gonic/gin"
+	"github.com/zhangdapeng520/zdpgo_random"
+)
+
+var (
+	random = zdpgo_random.New()
 )
 
 type JCodec struct {
@@ -41,7 +46,7 @@ func serveHTTP() {
 		router.GET("/stream/player/:uuid", HTTPAPIServerStreamPlayer)
 
 		// 新增一个流
-		router.POST("/stream/player/:name", HTTPAPIServerStreamPlayerAdd)
+		router.POST("/stream/player", HTTPAPIServerStreamPlayerAdd)
 
 		// 删除一个流
 		router.DELETE("/stream/player/:name", HTTPAPIServerStreamPlayerDelete)
@@ -96,8 +101,11 @@ func HTTPAPIServerStreamPlayer(c *gin.Context) {
 // 添加流
 func HTTPAPIServerStreamPlayerAdd(c *gin.Context) {
 	// 获取流的名称
-	name := c.Param("name")
-	fmt.Println("name:", name)
+	//name := c.Param("name")
+	//fmt.Println("name:", name)
+
+	// 生成流的名称
+	name := random.RandomUUID()
 
 	// 获取URL
 	data := make(map[string]interface{}) // 注意该结构接受的内容
@@ -230,8 +238,9 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 	// 开启新的协程任务
 	go func() {
 		// 创建流媒体管道
-		cid, ch := Config.clAd(c.PostForm("suuid"))
-		defer Config.clDe(c.PostForm("suuid"), cid)
+		uuid := c.PostForm("suuid")
+		cid, ch := Config.clAd(uuid)
+		defer Config.clDe(uuid, cid)
 		defer muxerWebRTC.Close()
 
 		// 是否开始播放视频
@@ -252,6 +261,19 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 				}
 				err = muxerWebRTC.WritePacket(pck)
 				if err != nil {
+					Config.clDe(uuid, cid) // 断开当前的连接
+
+					// TODO: 断开连接以后，一定会走这个方法
+					// TODO: 查看该name的数量，如果已经是0了，则删除
+					fmt.Println("uuid是什么：", uuid)
+					fmt.Println("是否还有人在连接：", Config.HasViewer(uuid))
+					tmp, ok := Config.Streams[uuid]
+					fmt.Println("ok", ok)
+					fmt.Println("tmp.Cl", tmp.Cl, len(tmp.Cl))
+
+					if !Config.HasViewer(uuid) {
+						delete(Config.Streams, uuid)
+					}
 					log.Println("写入packet信息失败：", err)
 					return
 				}

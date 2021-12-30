@@ -8,12 +8,15 @@ let config = {
 };
 
 const pc = new RTCPeerConnection(config);
+
+// 当拿到编码信息以后自动触发的一个处理事件
 pc.onnegotiationneeded = handleNegotiationNeededEvent;
 
 let log = msg => {
   document.getElementById('div').innerHTML += msg + '<br>'
 }
 
+// 修改视频流的源流
 pc.ontrack = function(event) {
   stream.addTrack(event.track);
   videoElem.srcObject = stream;
@@ -22,18 +25,21 @@ pc.ontrack = function(event) {
 
 pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
 
+// 当拿到编码信息以后自动触发的一个处理事件
 async function handleNegotiationNeededEvent() {
-  let offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  getRemoteSdp();
+  let offer = await pc.createOffer(); // 创建offer
+  await pc.setLocalDescription(offer); // 设置描述
+  getRemoteSdp(); // 获取远程的sdp
 }
 
+// 文档准备完毕
 $(document).ready(function() {
   $('#' + suuid).addClass('active');
   getCodecInfo();
 });
 
 
+// 获取编码信息
 function getCodecInfo() {
   $.get("../codec/" + suuid, function(data) {
     try {
@@ -41,6 +47,7 @@ function getCodecInfo() {
     } catch (e) {
       console.log(e);
     } finally {
+      // 渲染编码信息
       $.each(data,function(index,value){
         pc.addTransceiver(value.Type, {
           'direction': 'sendrecv'
@@ -52,12 +59,14 @@ function getCodecInfo() {
 
 let sendChannel = null;
 
+// 获取远程的sdp
 function getRemoteSdp() {
   $.post("../receiver/"+ suuid, {
     suuid: suuid,
     data: btoa(pc.localDescription.sdp)
   }, function(data) {
     try {
+      // 设置远程描述
       pc.setRemoteDescription(new RTCSessionDescription({
         type: 'answer',
         sdp: atob(data)

@@ -9,6 +9,7 @@
 **/.codecov
 **/coverage.*
 **/*.exe
+**/*.zip
 **/_builds
 **/.idea
 **/tmp
@@ -16,4 +17,4 @@
 **/mtest*
 **/*.log
 config.json
-test
+**/test

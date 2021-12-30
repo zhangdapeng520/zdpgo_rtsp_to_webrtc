@@ -101,6 +101,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 			case rtspv2.SignalCodecUpdate:
 				Config.coAd(name, RTSPClient.CodecData)
 			case rtspv2.SignalStreamRTPStop:
+				fmt.Println("流媒体断开连接xxxxxxxxxxxxxxxxxxx")
 				return ErrorStreamExitRtspDisconnect
 			}
 		// 打包
