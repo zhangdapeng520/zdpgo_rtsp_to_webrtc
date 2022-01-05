@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -144,19 +145,24 @@ func loadConfig() *ConfigST {
 		}
 	} else {
 		// 读取配置文件出错，从命令行提取数据
-		addr := flag.String("listen", "8083", "HTTP host:port")
+		// addr := flag.String("listen", "8083", "HTTP host:port")
+		port := os.Args[1]
+		addr := fmt.Sprintf("0.0.0.0:%s", port)
+		log.Println("服务地址：", fmt.Sprintf("http://%s", addr))
 		udpMin := flag.Int("udp_min", 0, "WebRTC UDP port min")
 		udpMax := flag.Int("udp_max", 0, "WebRTC UDP port max")
-		iceServer := flag.String("ice_server", "", "ICE Server")
+		// iceServer := flag.String("ice_server", "", "ICE Server")
+		iceServer := "stun:stun.l.google.com:19302"
 		flag.Parse()
 
 		// 将提取的数据添加到配置中
-		tmp.Server.HTTPPort = *addr
+		tmp.Server.HTTPPort = addr
 		tmp.Server.WebRTCPortMin = uint16(*udpMin)
 		tmp.Server.WebRTCPortMax = uint16(*udpMax)
-		if len(*iceServer) > 0 {
-			tmp.Server.ICEServers = []string{*iceServer}
-		}
+		// if len(*iceServer) > 0 {
+		// 	tmp.Server.ICEServers = []string{*iceServer}
+		// }
+		tmp.Server.ICEServers = []string{iceServer}
 
 		// 创建一个空的stream map
 		tmp.Streams = make(map[string]StreamST)
