@@ -76,6 +76,21 @@ func (element *ConfigST) RunUnlock(uuid string) {
 	}
 }
 
+// 判断指定的rtspUrl是否已存在
+func (element *ConfigST) IsExists(rtspUrl string) (bool, string) {
+	element.mutex.Lock()
+	defer element.mutex.Unlock()
+
+	// 遍历流
+	for uuid, v := range element.Streams {
+		if v.URL == rtspUrl {
+			return true, uuid
+		}
+	}
+
+	return false, ""
+}
+
 // 判断指定的视频流是否还有观看者
 func (element *ConfigST) HasViewer(uuid string) bool {
 	element.mutex.Lock()
@@ -129,7 +144,7 @@ func loadConfig() *ConfigST {
 	var tmp ConfigST
 
 	// 读取配置
-	data, err := ioutil.ReadFile("config.json")
+	data, err := ioutil.ReadFile("config2.json")
 	if err == nil {
 
 		// 解析配置

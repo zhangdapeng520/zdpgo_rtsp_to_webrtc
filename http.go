@@ -98,21 +98,28 @@ func HTTPAPIServerStreamPlayer(c *gin.Context) {
 	})
 }
 
-// 添加流
+// 添加流,确保RTSP流是唯一的
+// 测试流：rtsp://admin:xx123456@111.198.61.222:9999/h264/ch1/main/av_stream
 func HTTPAPIServerStreamPlayerAdd(c *gin.Context) {
-	// 获取流的名称
-	//name := c.Param("name")
-	//fmt.Println("name:", name)
-
-	// 生成流的名称
-	name := random.RandomUUID()
-
 	// 获取URL
 	data := make(map[string]interface{}) // 注意该结构接受的内容
 	c.BindJSON(&data)
 	url := data["url"]
 	fmt.Println("url:", url)
 	fmt.Println("url:", data)
+
+	// 判断该流是否已存在
+	if ok, uuid := Config.IsExists(url.(string)); ok {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "该流已存在",
+			"uuid": uuid,
+		})
+		return
+	}
+
+	// 生成流的名称
+	name := random.RandomUUID()
 
 	// 将流添加到streams
 	stream := StreamST{
