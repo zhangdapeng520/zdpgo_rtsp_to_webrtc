@@ -3,17 +3,17 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github/zhangdapeng520/zdpgo_rtsp_to_webrtc/g"
 	"log"
 	"net/http"
 	"os"
 	"sort"
 	"time"
-	"zdpgo_rtsp_to_webrtc/g"
 
 	"github.com/deepch/vdk/av"
 	webrtc "github.com/deepch/vdk/format/webrtcv3"
 	"github.com/gin-gonic/gin"
-	stream2 "zdpgo_rtsp_to_webrtc/stream"
+	stream2 "github/zhangdapeng520/zdpgo_rtsp_to_webrtc/stream"
 )
 
 type JCodec struct {
@@ -21,46 +21,50 @@ type JCodec struct {
 }
 
 func ServeHTTP() {
+	if g.Z == nil || g.G.App == nil {
+		g.InitGlobal()
+	}
 	g.Z.Info("启动http服务")
 
 	// 底层使用的是gin
-	gin.SetMode(gin.ReleaseMode)
-
-	// 创建路由
-	router := gin.Default()
-
-	// 使用跨域中间件
-	router.Use(CORSMiddleware())
+	//gin.SetMode(gin.ReleaseMode)
+	//
+	//// 创建路由
+	//router := gin.Default()
+	//
+	//// 使用跨域中间件
+	//router.Use(CORSMiddleware())
 
 	// 在web目录存在的条件下执行逻辑
 	if _, err := os.Stat("./web"); !os.IsNotExist(err) {
+		g.Z.Info("app是什么", "app", g.G.App)
 		// 加载模板
-		router.LoadHTMLGlob("web/templates/*")
+		g.G.App.LoadHTMLGlob("web/templates/*")
 
 		// GET方式的首页路由
-		router.GET("/", HTTPAPIServerIndex)
+		g.G.App.GET("/", HTTPAPIServerIndex)
 
 		// GET方式的流媒体播放
 		// TODO: 如何实现播放流的关键
-		router.GET("/stream/player/:uuid", HTTPAPIServerStreamPlayer)
+		g.G.App.GET("/stream/player/:uuid", HTTPAPIServerStreamPlayer)
 
 		// 新增一个流
-		router.POST("/stream/player", HTTPAPIServerStreamPlayerAdd)
+		g.G.App.POST("/stream/player", HTTPAPIServerStreamPlayerAdd)
 
 		// 删除一个流
-		router.DELETE("/stream/player/:name", HTTPAPIServerStreamPlayerDelete)
+		g.G.App.DELETE("/stream/player/:name", HTTPAPIServerStreamPlayerDelete)
 	}
 
-	router.POST("/stream/receiver/:uuid", HTTPAPIServerStreamWebRTC)
+	g.G.App.POST("/stream/receiver/:uuid", HTTPAPIServerStreamWebRTC)
 
 	// 通过uuid获取编码
-	router.GET("/stream/codec/:uuid", HTTPAPIServerStreamCodec)
+	g.G.App.GET("/stream/codec/:uuid", HTTPAPIServerStreamCodec)
 
-	router.POST("/stream", HTTPAPIServerStreamWebRTC2)
+	g.G.App.POST("/stream", HTTPAPIServerStreamWebRTC2)
 
-	router.StaticFS("/static", http.Dir("web/static"))
+	g.G.App.StaticFS("/static", http.Dir("web/static"))
 	g.Z.Info("即将启动服务", "port", stream2.Config.Server.HTTPPort)
-	err := router.Run(stream2.Config.Server.HTTPPort)
+	err := g.G.App.Run(stream2.Config.Server.HTTPPort)
 	if err != nil {
 		g.Z.Info("启动HTTP服务失败：", err)
 	}

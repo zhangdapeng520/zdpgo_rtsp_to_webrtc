@@ -1,6 +1,7 @@
 package g
 
 import (
+	"github.com/zhangdapeng520/zdpgo_gin"
 	"github.com/zhangdapeng520/zdpgo_random"
 	"github.com/zhangdapeng520/zdpgo_signal"
 	"github.com/zhangdapeng520/zdpgo_zap"
@@ -10,6 +11,7 @@ func InitGlobal() {
 	initZap()
 	initSignal()
 	initRandom()
+	initGin()
 }
 
 func initZap() {
@@ -28,5 +30,12 @@ func initRandom() {
 	R = zdpgo_random.New(zdpgo_random.RandomConfig{
 		Debug:       true,
 		LogFilePath: "logs/zdpgo/zdpgo_random.log",
+	})
+}
+
+func initGin() {
+	G = zdpgo_gin.New(zdpgo_gin.GinConfig{
+		Debug:       true,
+		LogFilePath: "log/zdpgo/zdpgo_gin.log",
 	})
 }

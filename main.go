@@ -1,9 +1,9 @@
 package main
 
 import (
-	"zdpgo_rtsp_to_webrtc/api"
-	"zdpgo_rtsp_to_webrtc/g"
-	"zdpgo_rtsp_to_webrtc/stream"
+	"github/zhangdapeng520/zdpgo_rtsp_to_webrtc/api"
+	"github/zhangdapeng520/zdpgo_rtsp_to_webrtc/g"
+	"github/zhangdapeng520/zdpgo_rtsp_to_webrtc/stream"
 )
 
 func init() {
