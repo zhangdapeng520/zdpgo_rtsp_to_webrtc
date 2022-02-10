@@ -1,23 +1,81 @@
-package main
+package stream
 
 import (
 	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/deepch/vdk/av"
+	"github.com/deepch/vdk/codec/h264parser"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
-
-	"github.com/deepch/vdk/codec/h264parser"
-
-	"github.com/deepch/vdk/av"
+	"zdpgo_rtsp_to_webrtc/g"
 )
 
-// Config global
-var Config = loadConfig()
+var (
+	Config = loadConfig()
+)
+
+// 加载配置
+func loadConfig() *ConfigST {
+	if g.Z == nil {
+		g.InitGlobal()
+	}
+	g.Z.Info("加载配置。。。")
+
+	// 临时的配置对象
+	var tmp ConfigST
+
+	// 读取配置
+	data, err := ioutil.ReadFile("config.json")
+	if err == nil {
+
+		// 解析配置
+		err = json.Unmarshal(data, &tmp)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		// 生成流map
+		for i, v := range tmp.Streams {
+			v.Cl = make(map[string]Viewer)
+			tmp.Streams[i] = v
+		}
+	} else {
+		// 读取配置文件出错，从命令行提取数据
+		// addr := flag.String("listen", "8083", "HTTP host:port")
+		port := 8888
+		if len(os.Args) > 1 {
+			port, _ = strconv.Atoi(os.Args[1])
+		}
+		addr := fmt.Sprintf("0.0.0.0:%d", port)
+		log.Println("服务地址：", addr)
+		udpMin := flag.Int("udp_min", 0, "WebRTC UDP port min")
+		udpMax := flag.Int("udp_max", 0, "WebRTC UDP port max")
+		// iceServer := flag.String("ice_server", "", "ICE Server")
+		iceServer := "stun:stun.l.google.com:19302"
+		flag.Parse()
+
+		// 将提取的数据添加到配置中
+		tmp.Server.HTTPPort = addr
+		tmp.Server.WebRTCPortMin = uint16(*udpMin)
+		tmp.Server.WebRTCPortMax = uint16(*udpMax)
+		// if len(*iceServer) > 0 {
+		// 	tmp.Server.ICEServers = []string{*iceServer}
+		// }
+		tmp.Server.ICEServers = []string{iceServer}
+
+		// 创建一个空的stream map
+		tmp.Streams = make(map[string]StreamST)
+	}
+
+	// 返回临时的配置
+	return &tmp
+}
 
 // ConfigST 配置对象
 type ConfigST struct {
@@ -46,10 +104,10 @@ type StreamST struct {
 	Debug        bool              `json:"debug"`         // debug模式
 	RunLock      bool              `json:"-"`             // 运行锁
 	Codecs       []av.CodecData    // 编码
-	Cl           map[string]viewer // 连接
+	Cl           map[string]Viewer // 连接
 }
 
-type viewer struct {
+type Viewer struct {
 	c chan av.Packet
 }
 
@@ -138,57 +196,8 @@ func (element *ConfigST) GetWebRTCPortMax() uint16 {
 	return element.Server.WebRTCPortMax
 }
 
-// 加载配置
-func loadConfig() *ConfigST {
-	// 临时的配置对象
-	var tmp ConfigST
-
-	// 读取配置
-	data, err := ioutil.ReadFile("config2.json")
-	if err == nil {
-
-		// 解析配置
-		err = json.Unmarshal(data, &tmp)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		// 生成流map
-		for i, v := range tmp.Streams {
-			v.Cl = make(map[string]viewer)
-			tmp.Streams[i] = v
-		}
-	} else {
-		// 读取配置文件出错，从命令行提取数据
-		// addr := flag.String("listen", "8083", "HTTP host:port")
-		port := os.Args[1]
-		addr := fmt.Sprintf("0.0.0.0:%s", port)
-		log.Println("服务地址：", fmt.Sprintf("http://%s", addr))
-		udpMin := flag.Int("udp_min", 0, "WebRTC UDP port min")
-		udpMax := flag.Int("udp_max", 0, "WebRTC UDP port max")
-		// iceServer := flag.String("ice_server", "", "ICE Server")
-		iceServer := "stun:stun.l.google.com:19302"
-		flag.Parse()
-
-		// 将提取的数据添加到配置中
-		tmp.Server.HTTPPort = addr
-		tmp.Server.WebRTCPortMin = uint16(*udpMin)
-		tmp.Server.WebRTCPortMax = uint16(*udpMax)
-		// if len(*iceServer) > 0 {
-		// 	tmp.Server.ICEServers = []string{*iceServer}
-		// }
-		tmp.Server.ICEServers = []string{iceServer}
-
-		// 创建一个空的stream map
-		tmp.Streams = make(map[string]StreamST)
-	}
-
-	// 返回临时的配置
-	return &tmp
-}
-
 // 抓包
-func (element *ConfigST) cast(uuid string, pck av.Packet) {
+func (element *ConfigST) Cast(uuid string, pck av.Packet) {
 	element.mutex.Lock()
 	defer element.mutex.Unlock()
 	for _, v := range element.Streams[uuid].Cl {
@@ -199,7 +208,7 @@ func (element *ConfigST) cast(uuid string, pck av.Packet) {
 }
 
 // 判断该流媒体是否存在
-func (element *ConfigST) ext(suuid string) bool {
+func (element *ConfigST) Ext(suuid string) bool {
 	element.mutex.Lock()
 	defer element.mutex.Unlock()
 	_, ok := element.Streams[suuid]
@@ -207,7 +216,7 @@ func (element *ConfigST) ext(suuid string) bool {
 }
 
 // 添加媒体流
-func (element *ConfigST) coAd(suuid string, codecs []av.CodecData) {
+func (element *ConfigST) CoAd(suuid string, codecs []av.CodecData) {
 	element.mutex.Lock()
 	defer element.mutex.Unlock()
 	t := element.Streams[suuid]
@@ -216,7 +225,7 @@ func (element *ConfigST) coAd(suuid string, codecs []av.CodecData) {
 }
 
 // 获取媒体流
-func (element *ConfigST) coGe(suuid string) []av.CodecData {
+func (element *ConfigST) CoGe(suuid string) []av.CodecData {
 	for i := 0; i < 100; i++ {
 		element.mutex.RLock()
 		tmp, ok := element.Streams[suuid]
@@ -248,7 +257,7 @@ func (element *ConfigST) coGe(suuid string) []av.CodecData {
 }
 
 // 建立流媒体通信管道
-func (element *ConfigST) clAd(suuid string) (string, chan av.Packet) {
+func (element *ConfigST) ClAd(suuid string) (string, chan av.Packet) {
 	// 加锁
 	element.mutex.Lock()
 
@@ -262,14 +271,14 @@ func (element *ConfigST) clAd(suuid string) (string, chan av.Packet) {
 	ch := make(chan av.Packet, 100)
 
 	// 添加到流
-	element.Streams[suuid].Cl[cuuid] = viewer{c: ch}
+	element.Streams[suuid].Cl[cuuid] = Viewer{c: ch}
 
 	// 返回管道id和管道对象
 	return cuuid, ch
 }
 
 // 获取流媒体列表
-func (element *ConfigST) list() (string, []string) {
+func (element *ConfigST) List() (string, []string) {
 	element.mutex.Lock()
 	defer element.mutex.Unlock()
 	var res []string
@@ -284,7 +293,7 @@ func (element *ConfigST) list() (string, []string) {
 }
 
 // 删除一个流媒体
-func (element *ConfigST) clDe(suuid, cuuid string) {
+func (element *ConfigST) ClDe(suuid, cuuid string) {
 	element.mutex.Lock()
 	defer element.mutex.Unlock()
 	delete(element.Streams[suuid].Cl, cuuid)

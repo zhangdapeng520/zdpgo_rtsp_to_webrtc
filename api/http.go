@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -8,22 +8,21 @@ import (
 	"os"
 	"sort"
 	"time"
+	"zdpgo_rtsp_to_webrtc/g"
 
 	"github.com/deepch/vdk/av"
 	webrtc "github.com/deepch/vdk/format/webrtcv3"
 	"github.com/gin-gonic/gin"
-	"github.com/zhangdapeng520/zdpgo_random"
-)
-
-var (
-	random = zdpgo_random.New()
+	stream2 "zdpgo_rtsp_to_webrtc/stream"
 )
 
 type JCodec struct {
 	Type string
 }
 
-func serveHTTP() {
+func ServeHTTP() {
+	g.Z.Info("启动http服务")
+
 	// 底层使用的是gin
 	gin.SetMode(gin.ReleaseMode)
 
@@ -60,22 +59,23 @@ func serveHTTP() {
 	router.POST("/stream", HTTPAPIServerStreamWebRTC2)
 
 	router.StaticFS("/static", http.Dir("web/static"))
-	err := router.Run(Config.Server.HTTPPort)
+	g.Z.Info("即将启动服务", "port", stream2.Config.Server.HTTPPort)
+	err := router.Run(stream2.Config.Server.HTTPPort)
 	if err != nil {
-		log.Fatalln("启动HTTP服务失败：", err)
+		g.Z.Info("启动HTTP服务失败：", err)
 	}
 }
 
 // HTTPAPIServerIndex  首页
 func HTTPAPIServerIndex(c *gin.Context) {
-	_, all := Config.list()
+	_, all := stream2.Config.List()
 	if len(all) > 0 {
 		c.Header("Cache-Control", "no-cache, max-age=0, must-revalidate, no-store")
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Redirect(http.StatusMovedPermanently, "stream/player/"+all[0])
 	} else {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"port":    Config.Server.HTTPPort,
+			"port":    stream2.Config.Server.HTTPPort,
 			"version": time.Now().String(),
 		})
 	}
@@ -84,17 +84,17 @@ func HTTPAPIServerIndex(c *gin.Context) {
 // HTTPAPIServerStreamPlayer 流媒体方法
 func HTTPAPIServerStreamPlayer(c *gin.Context) {
 	// 获取配置列表
-	_, all := Config.list()
+	_, all := stream2.Config.List()
 
 	// 以字符串的方式排序
 	sort.Strings(all)
 
 	// 返回一个HTML模板
 	c.HTML(http.StatusOK, "player.tmpl", gin.H{
-		"port":     Config.Server.HTTPPort, // 端口号
-		"suuid":    c.Param("uuid"),        // uuid
-		"suuidMap": all,                    // 所有的流
-		"version":  time.Now().String(),    // 版本号
+		"port":     stream2.Config.Server.HTTPPort, // 端口号
+		"suuid":    c.Param("uuid"),                // uuid
+		"suuidMap": all,                            // 所有的流
+		"version":  time.Now().String(),            // 版本号
 	})
 }
 
@@ -109,7 +109,7 @@ func HTTPAPIServerStreamPlayerAdd(c *gin.Context) {
 	fmt.Println("url:", data)
 
 	// 判断该流是否已存在
-	if ok, uuid := Config.IsExists(url.(string)); ok {
+	if ok, uuid := stream2.Config.IsExists(url.(string)); ok {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 200,
 			"msg":  "该流已存在",
@@ -119,20 +119,20 @@ func HTTPAPIServerStreamPlayerAdd(c *gin.Context) {
 	}
 
 	// 生成流的名称
-	name := random.RandomUUID()
+	name := g.R.RandomUUID()
 
 	// 将流添加到streams
-	stream := StreamST{
+	stream := stream2.StreamST{
 		URL:          url.(string),
 		DisableAudio: true,
 	}
 
 	// 初始化map
-	stream.Cl = make(map[string]viewer)
-	Config.Streams[name] = stream
+	stream.Cl = make(map[string]stream2.Viewer)
+	stream2.Config.Streams[name] = stream
 
 	// 启动任务
-	go RTSPWorkerLoop(name, stream.URL, stream.OnDemand, stream.DisableAudio, stream.Debug)
+	go stream2.RTSPWorkerLoop(name, stream.URL, stream.OnDemand, stream.DisableAudio, stream.Debug)
 
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
@@ -148,7 +148,7 @@ func HTTPAPIServerStreamPlayerDelete(c *gin.Context) {
 	name := c.Param("name")
 	fmt.Println("name:", name)
 
-	delete(Config.Streams, name)
+	delete(stream2.Config.Streams, name)
 
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
@@ -162,13 +162,13 @@ func HTTPAPIServerStreamPlayerDelete(c *gin.Context) {
 func HTTPAPIServerStreamCodec(c *gin.Context) {
 
 	// 如果存在该UUID
-	if Config.ext(c.Param("uuid")) {
+	if stream2.Config.Ext(c.Param("uuid")) {
 
 		// 运行该流媒体
-		Config.RunIFNotRun(c.Param("uuid"))
+		stream2.Config.RunIFNotRun(c.Param("uuid"))
 
 		// 获取编码
-		codecs := Config.coGe(c.Param("uuid"))
+		codecs := stream2.Config.CoGe(c.Param("uuid"))
 		if codecs == nil {
 			return
 		}
@@ -208,16 +208,16 @@ func HTTPAPIServerStreamCodec(c *gin.Context) {
 func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 
 	// 优先考虑边界条件
-	if !Config.ext(c.PostForm("suuid")) {
+	if !stream2.Config.Ext(c.PostForm("suuid")) {
 		log.Println("视频流不存在")
 		return
 	}
 
 	// 运行提交的指定视频流
-	Config.RunIFNotRun(c.PostForm("suuid"))
+	stream2.Config.RunIFNotRun(c.PostForm("suuid"))
 
 	// 获取编码
-	codecs := Config.coGe(c.PostForm("suuid"))
+	codecs := stream2.Config.CoGe(c.PostForm("suuid"))
 	if codecs == nil {
 		log.Println("不存在该视频流的编码信息")
 		return
@@ -230,7 +230,7 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 	}
 
 	// 转换为WebRTC
-	muxerWebRTC := webrtc.NewMuxer(webrtc.Options{ICEServers: Config.GetICEServers(), ICEUsername: Config.GetICEUsername(), ICECredential: Config.GetICECredential(), PortMin: Config.GetWebRTCPortMin(), PortMax: Config.GetWebRTCPortMax()})
+	muxerWebRTC := webrtc.NewMuxer(webrtc.Options{ICEServers: stream2.Config.GetICEServers(), ICEUsername: stream2.Config.GetICEUsername(), ICECredential: stream2.Config.GetICECredential(), PortMin: stream2.Config.GetWebRTCPortMin(), PortMax: stream2.Config.GetWebRTCPortMax()})
 	answer, err := muxerWebRTC.WriteHeader(codecs, c.PostForm("data"))
 	if err != nil {
 		log.Println("写入WebRTC头失败", err)
@@ -246,8 +246,8 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 	go func() {
 		// 创建流媒体管道
 		uuid := c.PostForm("suuid")
-		cid, ch := Config.clAd(uuid)
-		defer Config.clDe(uuid, cid)
+		cid, ch := stream2.Config.ClAd(uuid)
+		defer stream2.Config.ClDe(uuid, cid)
 		defer muxerWebRTC.Close()
 
 		// 是否开始播放视频
@@ -268,18 +268,18 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 				}
 				err = muxerWebRTC.WritePacket(pck)
 				if err != nil {
-					Config.clDe(uuid, cid) // 断开当前的连接
+					stream2.Config.ClDe(uuid, cid) // 断开当前的连接
 
 					// TODO: 断开连接以后，一定会走这个方法
 					// TODO: 查看该name的数量，如果已经是0了，则删除
 					fmt.Println("uuid是什么：", uuid)
-					fmt.Println("是否还有人在连接：", Config.HasViewer(uuid))
-					tmp, ok := Config.Streams[uuid]
+					fmt.Println("是否还有人在连接：", stream2.Config.HasViewer(uuid))
+					tmp, ok := stream2.Config.Streams[uuid]
 					fmt.Println("ok", ok)
 					fmt.Println("tmp.Cl", tmp.Cl, len(tmp.Cl))
 
-					if !Config.HasViewer(uuid) {
-						delete(Config.Streams, uuid)
+					if !stream2.Config.HasViewer(uuid) {
+						delete(stream2.Config.Streams, uuid)
 					}
 					log.Println("写入packet信息失败：", err)
 					return
@@ -318,28 +318,28 @@ type ResponseError struct {
 
 func HTTPAPIServerStreamWebRTC2(c *gin.Context) {
 	url := c.PostForm("url")
-	if _, ok := Config.Streams[url]; !ok {
-		Config.Streams[url] = StreamST{
+	if _, ok := stream2.Config.Streams[url]; !ok {
+		stream2.Config.Streams[url] = stream2.StreamST{
 			URL:      url,
 			OnDemand: true,
-			Cl:       make(map[string]viewer),
+			Cl:       make(map[string]stream2.Viewer),
 		}
 	}
 
-	Config.RunIFNotRun(url)
+	stream2.Config.RunIFNotRun(url)
 
-	codecs := Config.coGe(url)
+	codecs := stream2.Config.CoGe(url)
 	if codecs == nil {
 		log.Println("Stream Codec Not Found")
-		c.JSON(500, ResponseError{Error: Config.LastError.Error()})
+		c.JSON(500, ResponseError{Error: stream2.Config.LastError.Error()})
 		return
 	}
 
 	muxerWebRTC := webrtc.NewMuxer(
 		webrtc.Options{
-			ICEServers: Config.GetICEServers(),
-			PortMin:    Config.GetWebRTCPortMin(),
-			PortMax:    Config.GetWebRTCPortMax(),
+			ICEServers: stream2.Config.GetICEServers(),
+			PortMin:    stream2.Config.GetWebRTCPortMin(),
+			PortMax:    stream2.Config.GetWebRTCPortMax(),
 		},
 	)
 
@@ -375,8 +375,8 @@ func HTTPAPIServerStreamWebRTC2(c *gin.Context) {
 	AudioOnly := len(codecs) == 1 && codecs[0].Type().IsAudio()
 
 	go func() {
-		cid, ch := Config.clAd(url)
-		defer Config.clDe(url, cid)
+		cid, ch := stream2.Config.ClAd(url)
+		defer stream2.Config.ClDe(url, cid)
 		defer muxerWebRTC.Close()
 		var videoStart bool
 		noVideo := time.NewTimer(10 * time.Second)

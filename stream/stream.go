@@ -1,12 +1,11 @@
-package main
+package stream
 
 import (
 	"errors"
 	"fmt"
+	"github.com/deepch/vdk/format/rtspv2"
 	"log"
 	"time"
-
-	"github.com/deepch/vdk/format/rtspv2"
 )
 
 // 异常错误常量
@@ -17,7 +16,7 @@ var (
 )
 
 // 开启流服务
-func serveStreams() {
+func ServeStreams() {
 	// 遍历所有的流
 	for k, v := range Config.Streams {
 		// 如果没有启动
@@ -28,7 +27,7 @@ func serveStreams() {
 	}
 }
 
-// 启动RTSP工作流
+// RTSPWorkerLoop 启动RTSP工作流
 func RTSPWorkerLoop(name, url string, OnDemand, DisableAudio, Debug bool) {
 	// 延迟解锁
 	defer Config.RunUnlock(name)
@@ -53,7 +52,7 @@ func RTSPWorkerLoop(name, url string, OnDemand, DisableAudio, Debug bool) {
 	}
 }
 
-// RTSP工作进程
+// RTSPWorker RTSP工作进程
 func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 
 	keyTest := time.NewTimer(20 * time.Second)
@@ -69,7 +68,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 
 	// 添加解码数据
 	if RTSPClient.CodecData != nil {
-		Config.coAd(name, RTSPClient.CodecData)
+		Config.CoAd(name, RTSPClient.CodecData)
 	}
 
 	// 是否为纯音频
@@ -99,7 +98,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 		case signals := <-RTSPClient.Signals:
 			switch signals {
 			case rtspv2.SignalCodecUpdate:
-				Config.coAd(name, RTSPClient.CodecData)
+				Config.CoAd(name, RTSPClient.CodecData)
 			case rtspv2.SignalStreamRTPStop:
 				fmt.Println("流媒体断开连接xxxxxxxxxxxxxxxxxxx")
 				return ErrorStreamExitRtspDisconnect
@@ -109,7 +108,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 			if AudioOnly || packetAV.IsKeyFrame {
 				keyTest.Reset(20 * time.Second)
 			}
-			Config.cast(name, *packetAV)
+			Config.Cast(name, *packetAV)
 		}
 	}
 }
