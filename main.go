@@ -11,12 +11,7 @@ func init() {
 }
 
 func main() {
-	// 开启HTTP服务
-	go api.ServeHTTP()
-
-	// 开启服务流
-	go stream.ServeStreams()
-
-	// 优雅退出：监听服务退出信号
-	g.S.Exit()
+	go api.ServeHTTP()       // 开启HTTP服务
+	go stream.ServeStreams() // 开启服务流
+	g.S.Exit()               // 优雅退出：监听服务退出信号
 }

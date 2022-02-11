@@ -2,9 +2,8 @@ package stream
 
 import (
 	"errors"
-	"fmt"
 	"github.com/deepch/vdk/format/rtspv2"
-	"log"
+	"github/zhangdapeng520/zdpgo_rtsp_to_webrtc/g"
 	"time"
 )
 
@@ -15,37 +14,39 @@ var (
 	ErrorStreamExitNoViewer        = errors.New("流退出：守护进程上没有观看者了")
 )
 
-// 开启流服务
+// ServeStreams 开启流服务
 func ServeStreams() {
 	// 遍历所有的流
 	for k, v := range Config.Streams {
-		// 如果没有启动
-		if !v.OnDemand {
-			// 启动流
-			go RTSPWorkerLoop(k, v.URL, v.OnDemand, v.DisableAudio, v.Debug)
+		if !v.OnDemand { // 如果没有启动
+			go RTSPWorkerLoop(k, v.URL, v.OnDemand, v.DisableAudio, v.Debug) // 启动流
 		}
 	}
 }
 
 // RTSPWorkerLoop 启动RTSP工作流
+// name：流的uuid，也是流的名称
+// url：流的rtspUrl字符串
+// OnDemand：是否未启用
+// DisableAudio：是否禁用音频
+// Debug：是否为调试模式
 func RTSPWorkerLoop(name, url string, OnDemand, DisableAudio, Debug bool) {
 	// 延迟解锁
 	defer Config.RunUnlock(name)
 	for {
-		// TODO：开始工作
-		// 这个方法里面有一个死循环，只要不报错，就会一直留在这个循环中
-		err := RTSPWorker(name, url, OnDemand, DisableAudio, Debug)
+		err := RTSPWorker(name, url, OnDemand, DisableAudio, Debug) // 启动RTSP工作者
 		if err != nil {
-			log.Println("执行RTSPWorker错误：", err)
+			g.Z.Error("执行RTSPWorker错误", "error", err)
 			Config.LastError = err
 		}
+
 		// 监听浏览器的退出信号
 		tmp, ok := Config.Streams[name]
 		if ok {
-			fmt.Println("当前视频流的客户端连接数：", len(tmp.Cl), tmp.Cl)
+			g.Z.Info("当前视频流的客户端连接数", "数量", len(tmp.Cl), "客户端列表", tmp.Cl)
 		}
-		if OnDemand && !Config.HasViewer(name) {
-			log.Println(ErrorStreamExitNoViewer)
+		if OnDemand && !Config.HasViewer(name) { // 如果是未启用的，且该流没有观看者了
+			g.Z.Error("流的所有客户端都关闭了", "error", ErrorStreamExitNoViewer)
 			return
 		}
 		time.Sleep(1 * time.Second)
@@ -53,6 +54,11 @@ func RTSPWorkerLoop(name, url string, OnDemand, DisableAudio, Debug bool) {
 }
 
 // RTSPWorker RTSP工作进程
+// name：rtsp流的uuid
+// url：rtsp流的url
+// OnDemand：是否未启用
+// DisableAudio：是否禁用音频
+// Debug：是否为调试模式
 func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 
 	keyTest := time.NewTimer(20 * time.Second)
@@ -100,7 +106,7 @@ func RTSPWorker(name, url string, OnDemand, DisableAudio, Debug bool) error {
 			case rtspv2.SignalCodecUpdate:
 				Config.CoAd(name, RTSPClient.CodecData)
 			case rtspv2.SignalStreamRTPStop:
-				fmt.Println("流媒体断开连接xxxxxxxxxxxxxxxxxxx")
+				g.Z.Info("流媒体断开连接")
 				return ErrorStreamExitRtspDisconnect
 			}
 		// 打包

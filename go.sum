@@ -267,6 +267,10 @@ github.com/ugorji/go/codec v1.1.7 h1:2SvQaVZ1ouYrrKKwoSk2pzd4A9evlKJb9oTL+OaLUSs
 github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLYF3GoBXY=
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/zenazn/goji v0.9.0/go.mod h1:7S9M489iMyHBNxwZnk9/EHS098H4/F6TATF2mIxtB1Q=
+github.com/zhangdapeng520/zdpgo_code v0.1.0 h1:Emn6YghcVHSp/uvulPcCvGdmxea9uHJD0Is5BbHrJ78=
+github.com/zhangdapeng520/zdpgo_code v0.1.0/go.mod h1:A5Q5zEIjRgNcn3sqE5LSGkWyo7iaaO46mW5Zpgm7tRE=
+github.com/zhangdapeng520/zdpgo_signal v0.1.0 h1:gLLnARtlS43yxVd4zid7ppGDzxbzO7odm4YyKLdujc4=
+github.com/zhangdapeng520/zdpgo_signal v0.1.0/go.mod h1:4p4IO0QQAv52t2bYNC303+9FtfY/rDip7N6kNfv7hx4=
 github.com/zhangdapeng520/zdpgo_zap v0.1.0/go.mod h1:FcHMPIKdhGuHgCMZmIinRyHh4idCPU3FwAVY5g8pBUU=
 github.com/zhangdapeng520/zdpgo_zap v0.1.1/go.mod h1:FcHMPIKdhGuHgCMZmIinRyHh4idCPU3FwAVY5g8pBUU=
 github.com/zhangdapeng520/zdpgo_zap v0.2.1 h1:B+ByGYsa3+PXY1PLksFa6xjcJK3p7X0/G9GYvHw9KA4=

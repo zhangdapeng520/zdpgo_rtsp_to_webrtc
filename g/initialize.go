@@ -7,11 +7,12 @@ import (
 	"github.com/zhangdapeng520/zdpgo_zap"
 )
 
+// InitGlobal 初始化全局变量
 func InitGlobal() {
-	initZap()
-	initSignal()
-	initRandom()
-	initGin()
+	initZap()    // 初始化日志
+	initSignal() // 初始化信令
+	initRandom() // 初始化随机数
+	initGin()    // 初始化gin
 }
 
 func initZap() {
@@ -35,7 +36,9 @@ func initRandom() {
 
 func initGin() {
 	G = zdpgo_gin.New(zdpgo_gin.GinConfig{
-		Debug:       true,
-		LogFilePath: "log/zdpgo/zdpgo_gin.log",
+		Debug:        true,
+		LogFilePath:  "log/zdpgo/zdpgo_gin.log",
+		StaticPath:   "web/static",
+		TemplatePath: "web/templates/*",
 	})
 }
